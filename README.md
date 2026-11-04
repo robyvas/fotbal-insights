@@ -52,6 +52,8 @@ python3 -m venv .venv
 python3 -m http.server 8765 --directory site
 ```
 
+Pushing a change to `site/` publishes it to Cloudflare Pages through GitHub Actions (`.github/workflows/deploy.yml`).
+
 All model calls go through `insights/llm.py`, so changing provider means changing that one file. Answers are cached on disk. Currently only Gemini is implemented.
 
 The page is static. Since the data is frozen, a server recounting on every request would always return the same result, so the recount happens at build time and the build stops if any number fails. Each card's "See the proof" button lists the matches behind the claim. The big numbers and comparison bars come from the verified numbers, not from the model's text, so only the sentences are model-written.
