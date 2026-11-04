@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fotbal Verificat</title>
+<meta name="description" content="Tipare surprinzătoare din statistici de fotbal, cu dovada lângă fiecare cifră.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --surface: #f6f5f1;
+  --card: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --rule: #dedcd5;
+  --track: #ecebe5;
+  --accent: #2a78d6;
+  --context: #8d8c85;
+  --focus: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #121211;
+    --card: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --rule: #33332f;
+    --track: #2a2a27;
+    --accent: #3987e5;
+    --context: #85847c;
+    --focus: #3987e5;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 17px/1.5 "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.page { max-width: 680px; margin: 0 auto; padding: 40px 16px 64px; }
+h1, h2, .stat-value { font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif; }
+h1 { margin: 0; font-size: 56px; line-height: 1; font-weight: 700; letter-spacing: -.01em; }
+.lede { margin: 12px 0 0; font-size: 19px; color: var(--ink-2); max-width: 34em; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 8px; }
+.filters button {
+  min-height: 40px; padding: 6px 14px;
+  border: 1px solid var(--rule); border-radius: 999px;
+  background: transparent; color: var(--ink);
+  font: inherit; font-size: 15px; cursor: pointer;
+}
+.filters button:hover { border-color: var(--ink-2); }
+.filters button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); font-weight: 600; }
+.tier-note { min-height: 48px; margin: 8px 0 20px; font-size: 15px; color: var(--ink-2); }
+
+.card { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+.tier { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.tier svg { width: 14px; height: 14px; flex: none; }
+.card h2 { margin: 8px 0 12px; font-size: 30px; line-height: 1.1; font-weight: 700; }
+.stat { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 10px; margin-bottom: 8px; }
+.stat-value { font-size: 48px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 15px; color: var(--ink-2); }
+.card p { margin: 0; }
+
+.bars { margin: 16px 0 0; display: grid; gap: 10px; }
+.bar-head { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--ink-2); }
+.bar-head b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bar-track { height: 10px; margin-top: 4px; background: var(--track); border-radius: 2px; }
+.bar-fill { height: 100%; min-width: 2px; border-radius: 0 4px 4px 0; }
+.bar-0 .bar-fill { background: var(--accent); }
+.bar-1 .bar-fill { background: var(--context); }
+
+.proof-toggle {
+  margin-top: 16px; min-height: 40px; padding: 6px 0;
+  background: none; border: 0; color: var(--ink);
+  font: inherit; font-size: 15px; font-weight: 600;
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.proof { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--rule); font-size: 15px; }
+.proof .fact { color: var(--ink-2); margin-bottom: 16px; }
+.proof h3 { margin: 16px 0 4px; font-size: 15px; font-weight: 600; }
+.recount { display: flex; gap: 6px; align-items: flex-start; margin: 0 0 8px; }
+.recount svg { width: 14px; height: 14px; flex: none; margin-top: 4px; }
+.table-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--rule); border-radius: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+th { position: sticky; top: 0; background: var(--card); text-align: left; font-weight: 600; color: var(--ink-2); box-shadow: inset 0 -1px var(--rule); }
+th, td { padding: 6px 10px; white-space: nowrap; }
+td.opp { white-space: normal; min-width: 120px; }
+tbody tr + tr td { border-top: 1px solid var(--track); }
+td.hit { font-weight: 600; }
+.num { text-align: right; }
+
+footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--rule); font-size: 15px; color: var(--ink-2); }
+footer h2 { margin: 0 0 8px; font-size: 24px; color: var(--ink); }
+footer ul { margin: 0 0 12px; padding-left: 20px; }
+footer li { margin-bottom: 6px; }
+.status { padding: 24px 0; color: var(--ink-2); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 480px) {
+  h1 { font-size: 44px; }
+  .card { padding: 16px; }
+  .card h2 { font-size: 26px; }
+  .stat-value { font-size: 40px; }
+  table { font-size: 13px; }
+  th, td { padding: 6px; }
+  td.opp { min-width: 84px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Fotbal Verificat</h1>
+    <p class="lede">Tipare surprinzătoare din statistici de fotbal. Lângă fiecare card găsești meciurile din spatele cifrelor.</p>
+  </header>
+  <div class="filters" id="filters" role="group" aria-label="Filtrează după nivel"></div>
+  <p class="tier-note" id="tier-note"></p>
+  <main id="feed" aria-live="polite"><p class="status">Se încarcă feedul…</p></main>
+  <footer>
+    <h2>Ce trebuie să știi</h2>
+    <ul>
+      <li><span id="as-of">Datele sunt înghețate</span>. Sursa, Transfermarkt datasets, nu se mai actualizează.</li>
+      <li>Sunt incluse 14 campionate europene, doar meciuri de campionat, din 2012. „Restul meciurilor” nu înseamnă toată cariera.</li>
+      <li>Superliga României lipsește, pentru că sursa nu are date de jucători pentru ea.</li>
+      <li>Tiparele arată ce s-a întâmplat, nu de ce. Câștigurile „cu el titular” nu dovedesc că el le-a produs.</li>
+      <li>Cifrele sunt recalculate din sursă, deci o greșeală din sursă ar apărea și aici.</li>
+    </ul>
+    <p id="model-note"></p>
+  </footer>
+</div>
+<script>
+const TIERS = {
+  all: { label: "Toate", note: "Toate tiparele găsite, ordonate după cât de surprinzătoare și de relevante sunt." },
+  record: { label: "Record", note: "Rar în absolut: foarte puțini jucători din baza de date au ajuns la o asemenea serie.", icon: '<path d="M8 1.5l2 4.3 4.7.6-3.4 3.2.9 4.7L8 11.9l-4.2 2.4.9-4.7L1.3 6.4 6 5.8z" fill="currentColor"/>' },
+  confirmed: { label: "Confirmat", note: "A rămas semnificativ după corecția pentru miile de combinații testate, deci e puțin probabil să fie noroc.", icon: '<path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' },
+  notable: { label: "Curiozitate", note: "Cifrele sunt exacte, dar cu atâtea combinații testate, tiparul poate fi și noroc.", icon: '<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="8" cy="8" r="1.75" fill="currentColor"/>' },
+};
+const SVG_NS = 'viewBox="0 0 16 16" aria-hidden="true"';
+const CHECK = `<svg ${SVG_NS}>${TIERS.confirmed.icon}</svg>`;
+const CROSS = `<svg ${SVG_NS}><path d="M3 3l10 10M13 3L3 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    if (key === "class") node.className = value;
+    else if (key === "html") node.innerHTML = value; // only ever our own constant icons
+    else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+    else node.setAttribute(key, value);
+  }
+  node.append(...children);
+  return node;
+}
+
+// Romanian numeral agreement: 5 meciuri, 64 de meciuri, 1 gol.
+const count = (n, plural, singular) => {
+  if (n === 1 && singular) return `1 ${singular}`;
+  const lastTwo = n % 100;
+  return (lastTwo >= 20 || (lastTwo === 0 && n > 0)) ? `${n} de ${plural}` : `${n} ${plural}`;
+};
+const roDate = iso => iso.split("-").reverse().join(".");
+let cards = [];
+let activeTier = "all";
+try { activeTier = TIERS[localStorage.getItem("tier")] ? localStorage.getItem("tier") : "all"; } catch {}
+
+function renderFilters() {
+  const box = document.getElementById("filters");
+  box.replaceChildren(...Object.entries(TIERS).map(([tier, info]) => {
+    const count = tier === "all" ? cards.length : cards.filter(c => c.tier === tier).length;
+    return el("button", {
+      type: "button", "aria-pressed": String(tier === activeTier),
+      onclick: () => { activeTier = tier; try { localStorage.setItem("tier", tier); } catch {} render(); },
+    }, `${info.label} (${count})`);
+  }));
+  document.getElementById("tier-note").textContent = TIERS[activeTier].note;
+}
+
+function barsView(bars) {
+  if (!bars.length) return [];
+  return [el("div", { class: "bars" }, ...bars.map((bar, i) => {
+    const width = bar.scale ? Math.min(100, bar.value / bar.scale * 100) : 0;
+    return el("div", { class: `bar-${i}` },
+      el("div", { class: "bar-head" }, el("span", {}, bar.label), el("b", {}, bar.display)),
+      el("div", { class: "bar-track", "aria-hidden": "true" },
+        el("div", { class: "bar-fill", style: `width:${width}%` })));
+  }))];
+}
+
+function proofTable(group) {
+  const isClub = group.metric === "won";
+  const heads = isClub ? ["Data", "Adversar", "Loc", "Scor", "Victorie"] : ["Data", "Adversar", "Loc", "Scor", "Goluri", "Minute"];
+  const rows = group.rows.map(row => el("tr", {},
+    el("td", {}, roDate(row.date)),
+    el("td", { class: "opp" }, row.opponent),
+    el("td", {}, row.home ? "acasă" : "depl."),
+    el("td", {}, row.score),
+    ...(isClub
+      ? [el("td", { class: row.won ? "hit" : "" }, row.won ? "da" : "nu")]
+      : [el("td", { class: `num ${row.goals > 0 ? "hit" : ""}` }, String(row.goals)), el("td", { class: "num" }, String(row.minutes))])));
+  return el("div", { class: "table-wrap", tabindex: "0", role: "region", "aria-label": `Meciuri: ${group.label}` },
+    el("table", {},
+      el("thead", {}, el("tr", {}, ...heads.map((h, i) => el("th", { scope: "col", class: !isClub && i > 3 ? "num" : "" }, h)))),
+      el("tbody", {}, ...rows)));
+}
+
+function recountText(group) {
+  if (!group.recount_ok) return "Recalcularea din datele brute nu a confirmat cifra.";
+  const games = count(group.n, "meciuri", "meci");
+  if (group.metric === "goals") return `Recalculat acum din datele brute: ${count(group.k, "goluri", "gol")} în ${games}.`;
+  const what = group.metric === "won" ? count(group.k, "victorii", "victorie") : count(group.k, "meciuri cu gol", "meci cu gol");
+  return `Recalculat acum din datele brute: ${what} din ${games}.`;
+}
+
+async function toggleProof(card, button, slot) {
+  const opening = button.getAttribute("aria-expanded") !== "true";
+  button.setAttribute("aria-expanded", String(opening));
+  button.textContent = opening ? "Ascunde dovada" : "Vezi dovada";
+  if (!opening) { slot.replaceChildren(); return; }
+  slot.replaceChildren(el("div", { class: "proof" }, "Se recalculează…"));
+  try {
+    const response = await fetch(`/api/cards/${card.id}/evidence`);
+    if (!response.ok) throw new Error(response.status);
+    const proof = await response.json();
+    if (button.getAttribute("aria-expanded") !== "true") return;
+    slot.replaceChildren(el("div", { class: "proof" },
+      el("p", { class: "fact" }, `Faptul verificat, înainte de rescriere: ${proof.verified_fact}`),
+      ...proof.groups.flatMap(group => [
+        el("h3", {}, group.label),
+        el("p", { class: "recount" }, el("span", { html: group.recount_ok ? CHECK : CROSS }), recountText(group)),
+        proofTable(group),
+      ])));
+  } catch {
+    slot.replaceChildren(el("div", { class: "proof" }, "Dovada nu s-a putut încărca. Încearcă din nou."));
+  }
+}
+
+function cardView(card) {
+  const info = TIERS[card.tier];
+  const slot = el("div");
+  const button = el("button", { type: "button", class: "proof-toggle", "aria-expanded": "false" }, "Vezi dovada");
+  button.addEventListener("click", () => toggleProof(card, button, slot));
+  return el("article", { class: "card" },
+    el("div", { class: "tier" }, el("span", { html: `<svg ${SVG_NS}>${info.icon}</svg>`, style: "display:flex" }), info.label),
+    el("h2", {}, card.title),
+    el("div", { class: "stat" }, el("span", { class: "stat-value" }, card.stat.value), el("span", { class: "stat-label" }, card.stat.label)),
+    el("p", {}, card.text),
+    ...barsView(card.bars),
+    button, slot);
+}
+
+function render() {
+  renderFilters();
+  const visible = activeTier === "all" ? cards : cards.filter(c => c.tier === activeTier);
+  document.getElementById("feed").replaceChildren(...visible.map(cardView));
+}
+
+fetch("/api/feed").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
+  cards = data.cards;
+  document.getElementById("as-of").textContent = `Datele sunt înghețate la ${roDate(data.data_as_of)}`;
+  document.getElementById("model-note").textContent = `Textele sunt scrise de un model AI (${data.model}), după faptele verificate. Modelul nu calculează nimic, iar cifrele mari și barele vin direct din date.`;
+  render();
+}).catch(() => {
+  document.getElementById("feed").replaceChildren(el("p", { class: "status" }, "Feedul nu s-a putut încărca."));
+});
+</script>
+</body>
+</html>
