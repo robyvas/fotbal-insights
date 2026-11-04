@@ -1,43 +1,28 @@
-"""Serves the feed and the proof behind each card. Read-only.
+"""Export the feed and the proof behind each card to site/feed.json.
 
-Run with: .venv/bin/uvicorn insights.api:app --port 8765
+The data is frozen, so the page needs no server. Every number is recounted from the raw
+tables here, and the build stops if any recount fails.
 
 Everything shown as a number outside the card text (big stat, comparison bars, proof table)
 comes from the verified numbers and the raw tables, never from the model.
+
+Usage: python -m insights.build_site
 """
 import json
-from functools import lru_cache
-from pathlib import Path
 
 import duckdb
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
 
 from .config import DB_PATH, ROOT, WRITTEN_FEED_PATH
 from .generators import _n
 from .verify import check_group
 
-INDEX = Path(ROOT / "web" / "index.html")
-
-app = FastAPI(title="Football Insights", docs_url="/api/docs", openapi_url="/api/openapi.json")
+SITE_FEED_PATH = ROOT / "site" / "feed.json"
 
 GROUP_LABELS = {
     "home_away": ["Acasă", "În deplasare"],
     "super_sub": ["Ca rezervă", "Ca titular"],
     "with_without": ["Cu el titular", "Fără el titular"],
 }
-
-
-@lru_cache
-def connection():
-    return duckdb.connect(str(DB_PATH), read_only=True)
-
-
-@lru_cache
-def feed() -> dict:
-    if not WRITTEN_FEED_PATH.exists():
-        raise RuntimeError("data/feed.json is missing: run python -m insights.write_feed")
-    return json.loads(WRITTEN_FEED_PATH.read_text(encoding="utf-8"))
 
 
 def _comma(value: float, digits: int) -> str:
@@ -88,14 +73,6 @@ def stat_and_bars(card: dict) -> tuple[dict, list[dict]]:
     raise ValueError(f"unknown kind {kind}")
 
 
-def public_card(card_id: int, card: dict) -> dict:
-    stat, bars = stat_and_bars(card)
-    return {
-        "id": card_id, "title": card["title"], "text": card["text"], "tier": card["tier"], "kind": card["kind"],
-        "written_by": card["written_by"], "stat": stat, "bars": bars,
-    }
-
-
 def _player_rows(con, group) -> list[dict]:
     rows = con.execute("""
         SELECT g.date,
@@ -118,32 +95,40 @@ def _club_rows(con, group) -> list[dict]:
     return [{"date": str(r[0]), "opponent": r[1], "home": r[2], "score": f"{r[3]}–{r[4]}", "won": r[5]} for r in rows]
 
 
-@app.get("/api/feed")
-def get_feed() -> dict:
-    data = feed()
-    return {
-        "data_as_of": data["data_as_of"], "model": data["model"],
-        "cards": [public_card(i, card) for i, card in enumerate(data["cards"])],
-    }
-
-
-@app.get("/api/cards/{card_id}/evidence")
-def get_evidence(card_id: int) -> dict:
-    cards = feed()["cards"]
-    if not 0 <= card_id < len(cards):
-        raise HTTPException(status_code=404, detail="card not found")
-    card = cards[card_id]
-    con = connection().cursor()
+def proof_for(con, card: dict) -> dict:
+    """The matches behind a card. Raises if a claimed number does not recount."""
     labels = GROUP_LABELS.get(card["kind"], ["Meciurile din spatele cifrelor"])
     groups = []
     for label, group in zip(labels, card["evidence"]):
-        error = check_group(con, group)  # recounted on every request, from the raw tables
+        if error := check_group(con, group):
+            raise ValueError(f"{card['verified_fact']}: {error}")
         rows = _club_rows(con, group) if group["metric"] == "won" else _player_rows(con, group)
-        groups.append({"label": label, "metric": group["metric"], "k": group["k"], "n": group["n"],
-                       "recount_ok": error is None, "recount_error": error, "rows": rows})
+        groups.append({"label": label, "metric": group["metric"], "k": group["k"], "n": group["n"], "rows": rows})
     return {"verified_fact": card["verified_fact"], "groups": groups}
 
 
-@app.get("/", include_in_schema=False)
-def index() -> FileResponse:
-    return FileResponse(INDEX)
+def public_card(con, card: dict) -> dict:
+    stat, bars = stat_and_bars(card)
+    return {
+        "title": card["title"], "text": card["text"], "tier": card["tier"], "kind": card["kind"],
+        "written_by": card["written_by"], "stat": stat, "bars": bars, "proof": proof_for(con, card),
+    }
+
+
+def build() -> dict:
+    data = json.loads(WRITTEN_FEED_PATH.read_text(encoding="utf-8"))
+    con = duckdb.connect(str(DB_PATH), read_only=True)
+    site = {"data_as_of": data["data_as_of"], "model": data["model"],
+            "cards": [public_card(con, card) for card in data["cards"]]}
+    con.close()
+    return site
+
+
+def main() -> None:
+    site = build()
+    SITE_FEED_PATH.write_text(json.dumps(site, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"{len(site['cards'])} cards recounted, {SITE_FEED_PATH.stat().st_size // 1024} KB written to {SITE_FEED_PATH}")
+
+
+if __name__ == "__main__":
+    main()

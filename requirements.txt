@@ -2,6 +2,3 @@ duckdb==2.0.0
 numpy
 scipy
 pytest
-fastapi
-uvicorn
-httpx

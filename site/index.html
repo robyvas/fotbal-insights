@@ -130,7 +130,7 @@ footer li { margin-bottom: 6px; }
       <li>Sunt incluse 14 campionate europene, doar meciuri de campionat, din 2012. „Restul meciurilor” nu înseamnă toată cariera.</li>
       <li>Superliga României lipsește, pentru că sursa nu are date de jucători pentru ea.</li>
       <li>Tiparele arată ce s-a întâmplat, nu de ce. Câștigurile „cu el titular” nu dovedesc că el le-a produs.</li>
-      <li>Cifrele sunt recalculate din sursă, deci o greșeală din sursă ar apărea și aici.</li>
+      <li>Cifrele sunt recalculate din sursă la generarea feedului, deci o greșeală din sursă ar apărea și aici.</li>
     </ul>
     <p id="model-note"></p>
   </footer>
@@ -144,7 +144,6 @@ const TIERS = {
 };
 const SVG_NS = 'viewBox="0 0 16 16" aria-hidden="true"';
 const CHECK = `<svg ${SVG_NS}>${TIERS.confirmed.icon}</svg>`;
-const CROSS = `<svg ${SVG_NS}><path d="M3 3l10 10M13 3L3 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
 function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
@@ -210,34 +209,24 @@ function proofTable(group) {
 }
 
 function recountText(group) {
-  if (!group.recount_ok) return "Recalcularea din datele brute nu a confirmat cifra.";
   const games = count(group.n, "meciuri", "meci");
-  if (group.metric === "goals") return `Recalculat acum din datele brute: ${count(group.k, "goluri", "gol")} în ${games}.`;
+  if (group.metric === "goals") return `Recalculat din datele brute la generarea feedului: ${count(group.k, "goluri", "gol")} în ${games}.`;
   const what = group.metric === "won" ? count(group.k, "victorii", "victorie") : count(group.k, "meciuri cu gol", "meci cu gol");
-  return `Recalculat acum din datele brute: ${what} din ${games}.`;
+  return `Recalculat din datele brute la generarea feedului: ${what} din ${games}.`;
 }
 
-async function toggleProof(card, button, slot) {
+function toggleProof(card, button, slot) {
   const opening = button.getAttribute("aria-expanded") !== "true";
   button.setAttribute("aria-expanded", String(opening));
   button.textContent = opening ? "Ascunde dovada" : "Vezi dovada";
   if (!opening) { slot.replaceChildren(); return; }
-  slot.replaceChildren(el("div", { class: "proof" }, "Se recalculează…"));
-  try {
-    const response = await fetch(`/api/cards/${card.id}/evidence`);
-    if (!response.ok) throw new Error(response.status);
-    const proof = await response.json();
-    if (button.getAttribute("aria-expanded") !== "true") return;
-    slot.replaceChildren(el("div", { class: "proof" },
-      el("p", { class: "fact" }, `Faptul verificat, înainte de rescriere: ${proof.verified_fact}`),
-      ...proof.groups.flatMap(group => [
-        el("h3", {}, group.label),
-        el("p", { class: "recount" }, el("span", { html: group.recount_ok ? CHECK : CROSS }), recountText(group)),
-        proofTable(group),
-      ])));
-  } catch {
-    slot.replaceChildren(el("div", { class: "proof" }, "Dovada nu s-a putut încărca. Încearcă din nou."));
-  }
+  slot.replaceChildren(el("div", { class: "proof" },
+    el("p", { class: "fact" }, `Faptul verificat, înainte de rescriere: ${card.proof.verified_fact}`),
+    ...card.proof.groups.flatMap(group => [
+      el("h3", {}, group.label),
+      el("p", { class: "recount" }, el("span", { html: CHECK }), recountText(group)),
+      proofTable(group),
+    ])));
 }
 
 function cardView(card) {
@@ -260,7 +249,7 @@ function render() {
   document.getElementById("feed").replaceChildren(...visible.map(cardView));
 }
 
-fetch("/api/feed").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
+fetch("feed.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
   cards = data.cards;
   document.getElementById("as-of").textContent = `Datele sunt înghețate la ${roDate(data.data_as_of)}`;
   document.getElementById("model-note").textContent = `Textele sunt scrise de un model AI (${data.model}), după faptele verificate. Modelul nu calculează nimic, iar cifrele mari și barele vin direct din date.`;

@@ -46,12 +46,13 @@ python3 -m venv .venv
 .venv/bin/python -m evals.judge_eval    # measures the judge on labeled cards
 
 # The feed page, at http://localhost:8765
-.venv/bin/uvicorn insights.api:app --port 8765
+.venv/bin/python -m insights.build_site # recounts everything, writes site/feed.json
+python3 -m http.server 8765 --directory site
 ```
 
-Each card has a "Vezi dovada" button. It lists the matches behind the claim and recounts them from the raw tables on that request. The big numbers and comparison bars are built from the verified numbers, not from the model's text, so only the sentences are model-written.
-
 All model calls go through `insights/llm.py`, so changing provider means changing that one file. Answers are cached on disk. Currently only Gemini is implemented.
+
+The page is static. Since the data is frozen, a server recounting on every request would always return the same result, so the recount happens at build time and the build stops if any number fails. Each card's "Vezi dovada" button lists the matches behind the claim. The big numbers and comparison bars come from the verified numbers, not from the model's text, so only the sentences are model-written.
 
 ## How it is checked
 
