@@ -17,29 +17,28 @@ from .checks import check_text
 from .config import DB_PATH, FEED_PATH, LLM_MODEL, MAX_REWRITES, WRITTEN_FEED_PATH
 from .llm import LLMError, complete
 
-SYSTEM = """Ești editor la un feed românesc de curiozități din fotbal.
-Primești un fapt verificat și îl rescrii ca un card scurt și viu, pentru fani.
+SYSTEM = """You are an editor at an English-language feed of football curiosities.
+You receive a verified fact and rewrite it as a short, lively card for fans.
 
-Reguli stricte:
-- Folosești DOAR informația din fapt. Nu adaugi context din ce știi tu: transferuri, poziții, antrenori, explicații.
-- Toate numerele rămân exact ca în fapt și se scriu cu cifre, niciodată în cuvinte. Datele rămân în formatul zz.ll.aaaa.
-- Păstrezi formularea „X din Y” când apare în fapt și nu inversezi numerele.
-- Fără superlative („cel mai”), fără „record”, „istoric”, „unic”.
-- Fără explicații ale cauzei („pentru că”, „datorită”). Datele arată ce s-a întâmplat, nu de ce.
-- Fără „mereu”, „toate”, „niciodată”, decât dacă exact așa spune faptul.
-- Numești jucătorul cu numele din fapt. Pentru cluburi folosești numele scurt uzual, în alfabet latin (de exemplu Lokomotiv Moscova).
-- Fiecare număr rămâne lipit de ce măsoară. Totalul de goluri ține de meciurile cu adversarul numit, nu de „restul meciurilor”. Procentul de meciuri nu e procent de goluri.
-- La o serie spui clar că a marcat în fiecare dintre aparițiile consecutive.
-- Fără „impact”, „eficiență” sau alte cuvinte care sugerează o cauză sau o calitate pe care faptul nu o afirmă.
-- Păstrezi cuvintele care arată o estimare, ca „cam”. Zecimalele se scriu cu virgulă: 1,5.
-- Română corectă, cu diacritice. Titlu de maximum 8 cuvinte, text de maximum 2 propoziții.
+Strict rules:
+- Use ONLY the information in the fact. Add nothing from your own knowledge: transfers, positions, managers, explanations.
+- Every number stays exactly as in the fact and is written in digits, never in words. Dates stay in the format 11 Nov 2012.
+- Keep the phrasing "X of Y" when the fact uses it, and do not swap the numbers.
+- Each number stays attached to what it measures. A goal total belongs to the games with the named opponent, not to "the other games". A percentage of games is not a percentage of goals.
+- For a streak, say clearly that the player scored in every one of the consecutive appearances.
+- No superlatives ("best", "most"), no "record", "historic", "unique".
+- No explanations of cause ("because", "thanks to"), and no "impact", "efficient" or other words that suggest a cause or a quality the fact does not state. The data shows what happened, not why.
+- No "always", "all" or "never" unless the fact says exactly that.
+- Keep words that mark an estimate, such as "about".
+- Name the player as in the fact, and repeat the surname instead of using he, him, his, she or her. For clubs use the short common name in the Latin alphabet (for example Lokomotiv Moscow).
+- Correct English. Title of at most 8 words, text of at most 2 sentences.
 
-Stil: scrii ca un jurnalist sportiv care povestește unui prieten. Titlul spune ideea, nu doar numele. Fraze scurte, active, fără limbaj de raport („această rată este comparată”, „acesta”).
+Style: write like a sports journalist telling a friend. The title states the idea, not just the names. Short, active sentences, no report language ("this rate is compared with").
 
-Exemplu de stil, cu un jucător inventat:
-Fapt: Ion Popescu a marcat în 9 din 12 meciuri de campionat împotriva echipei FC Exemplu (75%), față de 20% în restul meciurilor din baza de date.
-Titlu: FC Exemplu, adversarul preferat al lui Popescu
-Text: Popescu a marcat în 9 din 12 meciuri cu FC Exemplu, adică 75%. Împotriva celorlalte echipe ajunge doar la 20%."""
+Style example, with an invented player:
+Fact: Ion Popescu scored in 9 of 12 league games against FC Example (75%), with 11 goals in those games. In the other games in the database the scoring rate is 20%.
+Title: FC Example, Popescu's favourite opponent
+Text: Popescu scored in 9 of 12 games against FC Example, 11 goals in all. Against everyone else the scoring rate drops to 20%."""
 
 SCHEMA = {
     "type": "OBJECT",
@@ -48,19 +47,19 @@ SCHEMA = {
 }
 
 JUDGE_FLAGS = {
-    "number_misattached": "Un număr e legat de altceva decât în fapt: un total de goluri pus la alt grup, un procent de meciuri prezentat ca procent de goluri, grupuri inversate.",
-    "outside_context": "Cardul menționează ceva ce nu apare deloc în fapt, de exemplu rolul, funcția sau echipa jucătorului, un transfer ori un eveniment. Numele scurt al unui club din fapt nu se pune.",
-    "implied_cause": "Cardul spune sau sugerează că cineva a produs rezultatul („o face să câștige”, „schimbă echipa”, „datorită lui”). Faptul arată doar ce s-a întâmplat.",
-    "exaggeration": "O estimare e prezentată ca sigură sau afirmația e mai tare decât faptul.",
-    "streak_unclear": "Faptul descrie o serie de apariții consecutive cu gol, dar din card nu reiese că a marcat în fiecare dintre ele. „24 de goluri în 15 apariții consecutive” NU spune asta. Dacă faptul nu descrie o serie, răspunsul e false.",
+    "number_misattached": "A number is tied to something other than in the fact: a goal total placed on another group, a percentage of games presented as a percentage of goals, swapped groups.",
+    "outside_context": "The card mentions something absent from the fact, such as the player's role, title or team, a transfer or an event. A short form of a club name from the fact does not count.",
+    "implied_cause": "The card says or suggests someone produced the result (\"makes them win\", \"transforms the team\", \"thanks to\"). The fact only shows what happened.",
+    "exaggeration": "An estimate is presented as certain, or the claim is stronger than the fact.",
+    "streak_unclear": "The fact describes a run of consecutive appearances with a goal, but the card does not make clear the player scored in every one of them. \"24 goals in 15 consecutive appearances\" does NOT say that. If the fact does not describe a run, the answer is false.",
 }
 
 JUDGE_SYSTEM = (
-    "Compari un card de feed cu faptul verificat din care a fost scris.\n"
-    "Răspunzi separat la fiecare întrebare: true înseamnă că problema există în card.\n\n"
+    "You compare a feed card with the verified fact it was written from.\n"
+    "Answer each question separately: true means the problem exists in the card.\n\n"
     + "\n".join(f"{name}: {question}" for name, question in JUDGE_FLAGS.items())
-    + "\n\nOmisiunea unor detalii secundare, reformularea și tonul viu nu sunt probleme.\n"
-    "În „problem” scrii scurt ce e greșit, sau un text gol dacă nu e nimic greșit."
+    + "\n\nLeaving out secondary details, rephrasing and a lively tone are not problems.\n"
+    "In \"problem\" write briefly what is wrong, or an empty string if nothing is."
 )
 
 JUDGE_SCHEMA = {
@@ -72,16 +71,16 @@ JUDGE_SCHEMA = {
 
 def judge_text(fact: str, title: str, text: str, ask: Callable = complete) -> list[str]:
     """Return what is wrong with the meaning of a card. Empty means the judge accepts it."""
-    answer = ask(JUDGE_SYSTEM, f"Fapt verificat:\n{fact}\n\nCard:\n{title}\n{text}", JUDGE_SCHEMA)
+    answer = ask(JUDGE_SYSTEM, f"Verified fact:\n{fact}\n\nCard:\n{title}\n{text}", JUDGE_SCHEMA)
     flagged = [name for name in JUDGE_FLAGS if answer[name]]
-    return [f"sens schimbat ({', '.join(flagged)}): {answer['problem']}"] if flagged else []
+    return [f"meaning changed ({', '.join(flagged)}): {answer['problem']}"] if flagged else []
 
 
 FALLBACK_TITLES = {
-    "opponent_hot": "Adversarul preferat", "opponent_cold": "Adversarul care îi rezistă",
-    "home_away": "Acasă și în deplasare", "scoring_streak": "Serie de goluri",
-    "super_sub": "De pe bancă", "recent_form": "Formă bună",
-    "team_head_to_head": "Duel dezechilibrat", "with_without": "Cu el și fără el",
+    "opponent_hot": "A favourite opponent", "opponent_cold": "The club that holds out",
+    "home_away": "Home and away", "scoring_streak": "A scoring run",
+    "super_sub": "Off the bench", "recent_form": "In form",
+    "team_head_to_head": "A one-sided fixture", "with_without": "With and without",
 }
 
 
@@ -93,28 +92,28 @@ def subject_name(con, insight: dict) -> str | None:
 
 def write_card(insight: dict, name: str | None, ask: Callable = complete, judge: Callable = judge_text) -> dict:
     """Return a card. `written_by` says whether the model's text passed the checks."""
-    prompt = f"Fapt verificat:\n{insight['fact_ro']}"
+    prompt = f"Verified fact:\n{insight['fact']}"
     errors: list[str] = []
     for attempt in range(MAX_REWRITES + 1):
-        full_prompt = prompt if not errors else f"{prompt}\n\nÎncercarea anterioară a fost respinsă:\n- " + "\n- ".join(errors)
+        full_prompt = prompt if not errors else f"{prompt}\n\nThe previous attempt was rejected:\n- " + "\n- ".join(errors)
         try:
             answer = ask(SYSTEM, full_prompt, SCHEMA)
             title, text = answer["title"].strip(), answer["text"].strip()
             errors = check_text(f"{title}\n{text}", insight, name)
             if not errors:
-                errors = judge(insight["fact_ro"], title, text)
+                errors = judge(insight["fact"], title, text)
         except (LLMError, KeyError, AttributeError) as error:
-            return _card(insight, FALLBACK_TITLES[insight["kind"]], insight["fact_ro"], "template", attempt, [str(error)])
+            return _card(insight, FALLBACK_TITLES[insight["kind"]], insight["fact"], "template", attempt, [str(error)])
         if not errors:
             return _card(insight, title, text, "llm", attempt, [])
-    return _card(insight, FALLBACK_TITLES[insight["kind"]], insight["fact_ro"], "template", MAX_REWRITES, errors)
+    return _card(insight, FALLBACK_TITLES[insight["kind"]], insight["fact"], "template", MAX_REWRITES, errors)
 
 
 def _card(insight, title, text, written_by, rewrites, errors) -> dict:
     return {
         "title": title, "text": text, "tier": insight["tier"], "kind": insight["kind"],
         "written_by": written_by, "rewrites": rewrites, "rejected_because": errors,
-        "verified_fact": insight["fact_ro"], "score": insight["score"],
+        "verified_fact": insight["fact"], "score": insight["score"],
         "numbers": insight["numbers"], "evidence": insight["evidence"],
     }
 

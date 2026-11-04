@@ -22,7 +22,7 @@ def site(source_cards):
 
 def test_page_exists_and_loads_the_feed_by_relative_path():
     html = (ROOT / "site" / "index.html").read_text(encoding="utf-8")
-    assert "Fotbal Verificat" in html
+    assert "Football, Verified" in html
     assert 'fetch("feed.json")' in html
     assert "/api/" not in html
 
@@ -46,13 +46,13 @@ def test_big_numbers_stay_in_range(source_cards):
 def test_mane_stat_is_right(source_cards):
     card = next(c for c in source_cards if c["kind"] == "opponent_hot" and "Mané" in c["verified_fact"])
     stat, bars = stat_and_bars(card)
-    assert stat["value"] == "12 din 14"
+    assert stat["value"] == "12 of 14"
     assert [b["display"] for b in bars] == ["86%", "32%"]
 
 
-def test_streak_label_uses_romanian_numeral_agreement(source_cards):
+def test_streak_label(source_cards):
     card = next(c for c in source_cards if c["kind"] == "scoring_streak" and "Messi" in c["verified_fact"])
-    assert stat_and_bars(card)[0]["label"] == "apariții la rând cu gol, 33 de goluri"
+    assert stat_and_bars(card)[0]["label"] == "straight appearances with a goal, 33 goals in total"
 
 
 def test_every_proof_has_a_row_per_claimed_game(site):

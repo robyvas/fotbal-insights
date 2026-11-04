@@ -19,14 +19,14 @@ from .verify import check_group
 SITE_FEED_PATH = ROOT / "site" / "feed.json"
 
 GROUP_LABELS = {
-    "home_away": ["Acasă", "În deplasare"],
-    "super_sub": ["Ca rezervă", "Ca titular"],
-    "with_without": ["Cu el titular", "Fără el titular"],
+    "home_away": ["At home", "Away"],
+    "super_sub": ["As a substitute", "As a starter"],
+    "with_without": ["With the player starting", "Without the player starting"],
 }
 
 
-def _comma(value: float, digits: int) -> str:
-    return f"{value:.{digits}f}".replace(".", ",")
+def _fixed(value: float, digits: int) -> str:
+    return f"{value:.{digits}f}"
 
 
 def _pct(value: float) -> str:
@@ -42,34 +42,34 @@ def stat_and_bars(card: dict) -> tuple[dict, list[dict]]:
     """The big number and the comparison, built only from the verified numbers."""
     kind, n = card["kind"], card["numbers"]
     if kind == "opponent_hot":
-        return ({"value": f"{n['k']} din {n['n']}", "label": "meciuri cu gol"},
-                _bars("Cu acest adversar", n["rate"], "În restul meciurilor", n["baseline"]))
+        return ({"value": f"{n['k']} of {n['n']}", "label": "games with a goal"},
+                _bars("Against this opponent", n["rate"], "In the other games", n["baseline"]))
     if kind == "opponent_cold":
-        return ({"value": f"0 din {n['n']}", "label": "meciuri cu gol"},
-                _bars("Cu acest adversar", 0, "În restul meciurilor", n["baseline"]))
+        return ({"value": f"0 of {n['n']}", "label": "games with a goal"},
+                _bars("Against this opponent", 0, "In the other games", n["baseline"]))
     if kind == "home_away":
-        return ({"value": f"{n['kh']} / {n['ka']}", "label": "meciuri cu gol, acasă / în deplasare"},
-                _bars("Acasă", n["rate_home"], "În deplasare", n["rate_away"]))
+        return ({"value": f"{n['kh']} / {n['ka']}", "label": "games with a goal, home / away"},
+                _bars("At home", n["rate_home"], "Away", n["rate_away"]))
     if kind == "scoring_streak":
-        return ({"value": str(n["length"]), "label": f"apariții la rând cu gol, {_n(n['goals'], 'goluri', 'gol')}"}, [])
+        return ({"value": str(n["length"]), "label": f"straight appearances with a goal, {_n(n['goals'], 'goals', 'goal')} in total"}, [])
     if kind == "super_sub":
         scale = max(n["per90_sub"], n["per90_start"])
-        return ({"value": str(n["goals_sub"]), "label": "goluri de pe bancă"}, [
-            {"label": "Goluri la 90 de minute, ca rezervă", "value": n["per90_sub"], "display": _comma(n["per90_sub"], 2), "scale": scale},
-            {"label": "Goluri la 90 de minute, ca titular", "value": n["per90_start"], "display": _comma(n["per90_start"], 2), "scale": scale},
+        return ({"value": str(n["goals_sub"]), "label": "goals off the bench"}, [
+            {"label": "Goals per 90 minutes, as a substitute", "value": n["per90_sub"], "display": _fixed(n["per90_sub"], 2), "scale": scale},
+            {"label": "Goals per 90 minutes, as a starter", "value": n["per90_start"], "display": _fixed(n["per90_start"], 2), "scale": scale},
         ])
     if kind == "recent_form":
         scale = max(n["goals"], n["expected"])
-        return ({"value": str(n["goals"]), "label": "goluri în ultimele 10 apariții"}, [
-            {"label": "Goluri marcate", "value": n["goals"], "display": str(n["goals"]), "scale": scale},
-            {"label": "La ritmul de dinainte", "value": n["expected"], "display": f"cam {_comma(n['expected'], 1)}", "scale": scale},
+        return ({"value": str(n["goals"]), "label": "goals in the last 10 appearances"}, [
+            {"label": "Goals scored", "value": n["goals"], "display": str(n["goals"]), "scale": scale},
+            {"label": "At the earlier rate", "value": n["expected"], "display": f"about {_fixed(n['expected'], 1)}", "scale": scale},
         ])
     if kind == "team_head_to_head":
-        return ({"value": f"{n['k']} din {n['n']}", "label": "victorii"},
-                _bars("Cu acest adversar", n["rate"], "Cu restul echipelor", n["baseline"]))
+        return ({"value": f"{n['k']} of {n['n']}", "label": "wins"},
+                _bars("Against this opponent", n["rate"], "Against other clubs", n["baseline"]))
     if kind == "with_without":
-        return ({"value": f"{n['k_with']} din {n['n_with']}", "label": "victorii cu el titular"},
-                _bars("Cu el titular", n["rate_with"], "Fără el titular", n["rate_without"]))
+        return ({"value": f"{n['k_with']} of {n['n_with']}", "label": "wins with the player starting"},
+                _bars("With the player starting", n["rate_with"], "Without the player starting", n["rate_without"]))
     raise ValueError(f"unknown kind {kind}")
 
 
@@ -97,7 +97,7 @@ def _club_rows(con, group) -> list[dict]:
 
 def proof_for(con, card: dict) -> dict:
     """The matches behind a card. Raises if a claimed number does not recount."""
-    labels = GROUP_LABELS.get(card["kind"], ["Meciurile din spatele cifrelor"])
+    labels = GROUP_LABELS.get(card["kind"], ["The games behind the numbers"])
     groups = []
     for label, group in zip(labels, card["evidence"]):
         if error := check_group(con, group):

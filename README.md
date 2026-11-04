@@ -2,6 +2,8 @@
 
 Finds genuinely surprising patterns in football statistics, and refuses to claim anything it cannot prove.
 
+**Live:** https://fotbal-insights.pages.dev
+
 The hard part of an "AI insights" feed is not generating text. It is that a language model reading
 stats will confidently invent numbers, and that searching thousands of combinations always turns up
 patterns that are pure luck. So here the model does no calculating:
@@ -52,7 +54,7 @@ python3 -m http.server 8765 --directory site
 
 All model calls go through `insights/llm.py`, so changing provider means changing that one file. Answers are cached on disk. Currently only Gemini is implemented.
 
-The page is static. Since the data is frozen, a server recounting on every request would always return the same result, so the recount happens at build time and the build stops if any number fails. Each card's "Vezi dovada" button lists the matches behind the claim. The big numbers and comparison bars come from the verified numbers, not from the model's text, so only the sentences are model-written.
+The page is static. Since the data is frozen, a server recounting on every request would always return the same result, so the recount happens at build time and the build stops if any number fails. Each card's "See the proof" button lists the matches behind the claim. The big numbers and comparison bars come from the verified numbers, not from the model's text, so only the sentences are model-written.
 
 ## How it is checked
 
@@ -62,14 +64,17 @@ The page is static. Since the data is frozen, a server recounting on every reque
 
 ### Checking the model's text
 
-Rule checks catch invented numbers, swapped "X din Y" pairs, numbers written as words, superlatives and causal words. They cannot catch correct numbers attached to the wrong thing, which the writer really did: "in the other games his rate is 19%, with 7 goals in total", where the 7 goals were against one opponent. That is why there is a judge.
+Rule checks catch invented numbers, swapped "X of Y" pairs, numbers written as words, superlatives, causal words and gendered pronouns. They cannot catch correct numbers attached to the wrong thing, which the writer really did: "in the other games the rate is 19%, with 7 goals in total", where the 7 goals were against one opponent. That is why there is a judge.
 
 | Judge version | Wrong cards caught | Good cards accepted |
 |---|---|---|
-| One overall verdict | 5 of 8 | 6 of 6 |
-| One answer per kind of error | 8 of 8 | 4 of 6 |
+| Romanian, one overall verdict | 5 of 8 | 6 of 6 |
+| Romanian, one answer per kind of error | 8 of 8 | 4 of 6 |
+| English, one answer per kind of error (current) | 8 of 8 | 6 of 6 |
 
-On the final run of 49 cards, all ended up model-written, 37 on the first try and 12 after a rewrite. A human read of all 49 found no wrong number or misattached number. The judge had earlier passed one misattached comparison that the same read caught, and the fix was to make the source fact less ambiguous.
+The English test set is a translation with adjusted good cards, so the last row is not a like-for-like improvement.
+
+On the final run of 49 cards, all ended up model-written, 42 on the first try and 7 after a rewrite. Claude read all 49 against their facts and found no wrong or misattached number; no person has reviewed them. In the earlier Romanian run, that same read-through caught a misattached comparison the judge had passed. The fix was to make the source fact less ambiguous.
 
 ## Known limits
 
@@ -80,6 +85,6 @@ On the final run of 49 cards, all ended up model-written, 37 on the first try an
 - **Patterns are associations, not causes.** `with_without` especially: rotation and injuries also depend on the opponent.
 - **The significance tests are simplified.** They treat games as independent and a player's rate as constant, which ignores role changes and opponent strength.
 - **Thresholds are judgment calls.** The false discovery rate, minimum samples and scoring weights are in `insights/config.py` and the generators, and were set while looking at this same data.
-- **The judge is an LLM too, and its numbers are not a real accuracy rate.** The 14 labeled cards were written by the author and the judge was adjusted after seeing them, so they show it can catch these errors, not how often it will.
+- **The judge is an LLM too, and its numbers are not a real accuracy rate.** The 14 labeled cards were written during development and the judge was adjusted after seeing them, so they show it can catch these errors, not how often it will.
 - **The writing is correct but repetitive.** The project uses the cheapest available model (`gemini-3.1-flash-lite`).
 - **Club names in the plain facts come straight from the source,** so some are formal or in Cyrillic. The model shortens them on the cards, unchecked.

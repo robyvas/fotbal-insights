@@ -1,6 +1,6 @@
 """Rule checks on model-written text, against the verified fact it was written from.
 
-These catch invented numbers, swapped "X din Y" pairs, numbers hidden in words, claims
+These catch invented numbers, swapped "X of Y" pairs, numbers hidden in words, claims
 the data cannot support, and dropped key numbers. They do NOT catch a change of meaning
 that uses only allowed numbers, such as a total attached to the wrong group. That is the
 job of the judge in write_feed.py, measured in evals/judge_eval.py.
@@ -8,19 +8,24 @@ job of the judge in write_feed.py, measured in evals/judge_eval.py.
 import re
 
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
-PAIR = re.compile(r"(\d+)\s+din\s+(\d+)")
+PAIR = re.compile(r"(\d+)\s+of\s+(\d+)")
 
-# "nouă" is left out because it also means "new" and "to us".
+# "one" is left out because it is also a pronoun.
 NUMBER_WORDS = re.compile(
-    r"\b(doi|două|trei|patru|cinci|șase|șapte|opt|zece|\w+sprezece|\w+zeci|sută|sute|mie|mii"
-    r"|jumătate|sfert|dublu|triplu|dublă|triplă|majoritatea)\b", re.IGNORECASE)
+    r"\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\w+teen|twenty|thirty|forty|fifty"
+    r"|sixty|seventy|eighty|ninety|hundred|thousand|half|quarter|double|triple|twice|thrice|majority)\b",
+    re.IGNORECASE)
 
 UNSUPPORTED_CLAIMS = re.compile(
-    r"\b(cel mai|cea mai|cei mai|cele mai|record\w*|istoric\w*|unic\w*"
-    r"|impact\w*|eficien\w*|eficac\w*|periculos\w*|precis|specialist\w*|ghinion\w*|datorită|din cauza|pentru că|fiindcă|deoarece|se datorează|secretul)\b", re.IGNORECASE)
+    r"\b(best|worst|most|least|greatest|record\w*|histor\w*|unique\w*"
+    r"|impact\w*|effective\w*|efficien\w*|dangerous\w*|precise\w*|specialist\w*|unlucky|luck\w*|curse\w*|jinx\w*"
+    r"|because|thanks to|due to|owing to|secret\w*)\b", re.IGNORECASE)
 
-# Absolute words are only true for a "never scored" fact.
-ABSOLUTES = re.compile(r"\b(niciodată|niciun|nicio|mereu|întotdeauna|de fiecare dată|toate|toți)\b", re.IGNORECASE)
+# Facts are written without gendered pronouns, and the cards keep to that.
+PRONOUNS = re.compile(r"\b(he|him|his|she|her|hers)\b", re.IGNORECASE)
+
+# Absolute words are allowed only when the fact itself uses them.
+ABSOLUTES = re.compile(r"\b(never|always|all|every time|each time|without fail|not once)\b", re.IGNORECASE)
 
 REQUIRED_NUMBERS = {
     "opponent_hot": ["k", "n"], "opponent_cold": ["n"], "home_away": ["kh", "nh", "ka", "na"],
@@ -36,26 +41,29 @@ def _numbers(text: str) -> set[str]:
 
 def check_text(text: str, insight: dict, subject_name: str | None = None) -> list[str]:
     """Return every rule the text breaks. An empty list means it passes."""
-    fact = insight["fact_ro"]
+    fact = insight["fact"]
     errors = []
     invented = _numbers(text) - _numbers(fact)
     if invented:
-        errors.append(f"numere care nu apar în fapt: {sorted(invented)}")
+        errors.append(f"numbers not in the fact: {sorted(invented)}")
     bad_pairs = set(PAIR.findall(text)) - set(PAIR.findall(fact))
     if bad_pairs:
-        errors.append(f"perechi „X din Y” care nu apar în fapt: {sorted(bad_pairs)}")
+        errors.append(f'"X of Y" pairs not in the fact: {sorted(bad_pairs)}')
     if match := NUMBER_WORDS.search(text):
-        errors.append(f"numere scrise în cuvinte: „{match.group(0)}”; folosește cifre")
+        errors.append(f'number written as a word: "{match.group(0)}"; use digits')
     if match := UNSUPPORTED_CLAIMS.search(text):
-        errors.append(f"afirmație pe care datele nu o susțin: „{match.group(0)}”")
-    if insight["kind"] != "opponent_cold" and (match := ABSOLUTES.search(text)):
-        errors.append(f"cuvânt absolut nepermis: „{match.group(0)}”")
+        errors.append(f'claim the data does not support: "{match.group(0)}"')
+    if match := PRONOUNS.search(text):
+        errors.append(f'gendered pronoun: "{match.group(0)}"; repeat the surname')
+    for match in ABSOLUTES.finditer(text):
+        if match.group(0).lower() not in fact.lower():
+            errors.append(f'absolute word not in the fact: "{match.group(0)}"')
     present = _numbers(text)
     for key in REQUIRED_NUMBERS[insight["kind"]]:
         if str(insight["numbers"][key]) not in present:
-            errors.append(f"lipsește numărul obligatoriu {insight['numbers'][key]}")
+            errors.append(f"missing required number {insight['numbers'][key]}")
     if subject_name:
         surname = subject_name.split()[-1]
         if surname.lower() not in text.lower():
-            errors.append(f"lipsește numele „{surname}”")
+            errors.append(f'missing the name "{surname}"')
     return errors

@@ -12,13 +12,14 @@ ACCEPT = lambda *_: []  # noqa: E731
 def write_card(insight, name, ask):
     return real_write_card(insight, name, ask, judge=ACCEPT)
 
+
 MANE = {
     "kind": "opponent_hot", "tier": "notable", "score": 0.5,
-    "fact_ro": "Sadio Mané a marcat în 12 din 14 meciuri de campionat împotriva echipei Crystal Palace (86%), "
-               "față de 32% în restul meciurilor din baza de date. 13 goluri în total.",
+    "fact": "Sadio Mané scored in 12 of 14 league games against Crystal Palace (86%), with 13 goals in those games. "
+            "In the other games in the database the scoring rate is 32%.",
     "numbers": {"k": 12, "n": 14}, "evidence": [],
 }
-GOOD = "Mané a marcat în 12 din 14 meciuri cu Crystal Palace (86%), față de 32% în rest."
+GOOD = "Mané scored in 12 of 14 games against Crystal Palace (86%), against 32% elsewhere."
 
 
 def test_faithful_text_passes():
@@ -26,34 +27,35 @@ def test_faithful_text_passes():
 
 
 @pytest.mark.parametrize("text, expected", [
-    ("Mané a marcat în 12 din 14 meciuri cu Palace, 15 goluri.", "numere care nu apar"),
-    ("Mané a marcat în 14 din 12 meciuri cu Palace.", "perechi"),
-    ("Mané a marcat în 12 din 14 meciuri, de trei ori mai des.", "în cuvinte"),
-    ("Mané e cel mai bun: 12 din 14 meciuri.", "nu o susțin"),
-    ("Mané a marcat în 12 din 14 meciuri pentru că îi place Palace.", "nu o susțin"),
-    ("Mané marchează mereu: 12 din 14 meciuri.", "absolut"),
-    ("Mané a marcat des împotriva lui Palace, 86%.", "lipsește numărul"),
-    ("Jucătorul a marcat în 12 din 14 meciuri.", "lipsește numele"),
-    ("Impactul lui Mané: 12 din 14 meciuri.", "nu o susțin"),
-    ("Mané, specialistul meciurilor cu Palace: 12 din 14 meciuri.", "nu o susțin"),
+    ("Mané scored in 12 of 14 games against Palace, 15 goals.", "numbers not in the fact"),
+    ("Mané scored in 14 of 12 games against Palace.", "pairs"),
+    ("Mané scored in 12 of 14 games, three times as often.", "as a word"),
+    ("Mané at the best: 12 of 14 games.", "does not support"),
+    ("Mané scored in 12 of 14 games because Palace suits Mané.", "does not support"),
+    ("Mané always scores: 12 of 14 games.", "absolute"),
+    ("Mané scored often against Palace, 86%.", "missing required number"),
+    ("The player scored in 12 of 14 games.", "missing the name"),
+    ("The impact of Mané: 12 of 14 games.", "does not support"),
+    ("Mané, the Palace specialist: 12 of 14 games.", "does not support"),
+    ("Mané scored in 12 of 14 games and his rate is 86%.", "pronoun"),
 ])
 def test_bad_text_is_rejected(text, expected):
     assert any(expected in error for error in check_text(text, MANE, "Sadio Mané"))
 
 
 def test_decimal_comma_equals_decimal_point():
-    insight = {"kind": "recent_form", "fact_ro": "Gibbs-White are 9 goluri. La ritmul lui ar fi avut cam 1.5.",
+    insight = {"kind": "recent_form", "fact": "Gibbs-White has 9 goals. The expected total would be about 1.5.",
                "numbers": {"goals": 9}}
-    assert check_text("Gibbs-White are 9 goluri, nu cam 1,5.", insight, "Morgan Gibbs-White") == []
+    assert check_text("Gibbs-White has 9 goals, not about 1,5.", insight, "Morgan Gibbs-White") == []
 
 
-def test_never_is_allowed_only_for_a_never_scored_fact():
-    cold = {"kind": "opponent_cold", "fact_ro": "Son nu a marcat niciodată cu Wolves în 12 meciuri.", "numbers": {"n": 12}}
-    assert check_text("Son nu a marcat niciodată cu Wolves în 12 meciuri.", cold, "Heung-min Son") == []
+def test_absolute_word_is_allowed_only_when_the_fact_uses_it():
+    cold = {"kind": "opponent_cold", "fact": "Son has never scored against Wolves in 12 league games.", "numbers": {"n": 12}}
+    assert check_text("Son has never scored against Wolves in 12 games.", cold, "Heung-min Son") == []
 
 
 def test_card_uses_text_that_passes_first_time():
-    card = write_card(MANE, "Sadio Mané", lambda *_: {"title": "Victima lui Mané", "text": GOOD})
+    card = write_card(MANE, "Sadio Mané", lambda *_: {"title": "Mané and Palace", "text": GOOD})
     assert (card["written_by"], card["rewrites"], card["text"]) == ("llm", 0, GOOD)
 
 
@@ -62,17 +64,17 @@ def test_rejected_text_is_sent_back_with_the_error():
 
     def fake(_system, prompt, _schema):
         prompts.append(prompt)
-        return {"title": "Mané", "text": GOOD if len(prompts) == 2 else "Mané: 12 din 14 meciuri, 99%."}
+        return {"title": "Mané", "text": GOOD if len(prompts) == 2 else "Mané: 12 of 14 games, 99%."}
 
     card = write_card(MANE, "Sadio Mané", fake)
     assert (card["written_by"], card["rewrites"]) == ("llm", 1)
-    assert "99" in prompts[1] and "respinsă" in prompts[1]
+    assert "99" in prompts[1] and "rejected" in prompts[1]
 
 
 def test_text_that_keeps_failing_falls_back_to_the_verified_fact():
-    card = write_card(MANE, "Sadio Mané", lambda *_: {"title": "Mané", "text": "Mané: 99 goluri."})
+    card = write_card(MANE, "Sadio Mané", lambda *_: {"title": "Mané", "text": "Mané: 99 goals."})
     assert card["written_by"] == "template"
-    assert card["text"] == MANE["fact_ro"]
+    assert card["text"] == MANE["fact"]
     assert card["rejected_because"]
 
 
@@ -97,7 +99,7 @@ def test_configuration_error_stops_the_run():
 
 
 def test_judge_rejection_sends_the_text_back_with_the_problem():
-    prompts, verdicts = [], [["sens schimbat: goluri la grupul greșit"], []]
+    prompts, verdicts = [], [["meaning changed: goals on the wrong group"], []]
 
     def fake(_system, prompt, _schema):
         prompts.append(prompt)
@@ -105,12 +107,12 @@ def test_judge_rejection_sends_the_text_back_with_the_problem():
 
     card = real_write_card(MANE, "Sadio Mané", fake, judge=lambda *_: verdicts.pop(0))
     assert (card["written_by"], card["rewrites"]) == ("llm", 1)
-    assert "grupul greșit" in prompts[1]
+    assert "wrong group" in prompts[1]
 
 
 def test_text_the_judge_keeps_rejecting_falls_back():
     card = real_write_card(MANE, "Sadio Mané", lambda *_: {"title": "Mané", "text": GOOD},
-                           judge=lambda *_: ["sens schimbat"])
+                           judge=lambda *_: ["meaning changed"])
     assert card["written_by"] == "template"
 
 
@@ -125,8 +127,8 @@ def test_judge_failure_does_not_let_the_text_through():
 def test_judge_text_reads_each_flag():
     clean = dict.fromkeys(JUDGE_FLAGS, False) | {"problem": ""}
     assert judge_text("f", "t", "x", lambda *_: clean) == []
-    flagged = judge_text("f", "t", "x", lambda *_: clean | {"implied_cause": True, "problem": "cauză"})
-    assert "implied_cause" in flagged[0] and "cauză" in flagged[0]
+    flagged = judge_text("f", "t", "x", lambda *_: clean | {"implied_cause": True, "problem": "cause"})
+    assert "implied_cause" in flagged[0] and "cause" in flagged[0]
 
 
 def test_judge_answer_missing_a_flag_does_not_let_the_text_through():

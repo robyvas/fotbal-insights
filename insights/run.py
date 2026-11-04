@@ -61,7 +61,7 @@ def generate(con) -> tuple[list[dict], list[dict]]:
         for insight in found:
             errors = verify_insight(con, insight)
             if errors:
-                failures.append({"fact": insight["fact_ro"], "errors": errors})
+                failures.append({"fact": insight["fact"], "errors": errors})
                 continue
             score(con, insight)
             insights.append(insight)
@@ -84,7 +84,7 @@ def main() -> None:
     for failure in failures[:10]:
         print("FAILED:", failure)
     for i, insight in enumerate(feed[: args.top], 1):
-        print(f"{i:>2}. [{insight['tier']}/{insight['kind']}] {insight['score']:.2f} {insight['fact_ro']}")
+        print(f"{i:>2}. [{insight['tier']}/{insight['kind']}] {insight['score']:.2f} {insight['fact']}")
 
 
 if __name__ == "__main__":

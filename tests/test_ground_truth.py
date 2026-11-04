@@ -31,7 +31,7 @@ def feed(con):
 ])
 def test_finds_known_record_streaks(con, name, length, goals):
     streaks, _ = scoring_streak(con)
-    match = [s for s in streaks if s["fact_ro"].startswith(name)]
+    match = [s for s in streaks if s["fact"].startswith(name)]
     assert match, f"{name} missing from streaks"
     assert match[0]["numbers"]["length"] == length
     assert match[0]["numbers"]["goals"] == goals
@@ -99,7 +99,7 @@ def test_no_streak_spans_an_untrusted_game(con):
             "AND date BETWEEN ? AND ?",
             [club_id, numbers["competition"], numbers["from"], numbers["to"]],
         ).fetchone()[0]
-        assert bad == 0, streak["fact_ro"]
+        assert bad == 0, streak["fact"]
 
 
 def test_without_games_never_fall_outside_the_players_starting_period(con, feed):
@@ -114,12 +114,9 @@ def test_without_games_never_fall_outside_the_players_starting_period(con, feed)
             SELECT count(*) FROM raw_games g LEFT JOIN spans s USING (season)
             WHERE list_contains(?, g.game_id) AND (s.season IS NULL OR g.date NOT BETWEEN s.d1 AND s.d2)
         """, [started["game_ids"], without["game_ids"]]).fetchone()[0]
-        assert outside == 0, insight["fact_ro"]
+        assert outside == 0, insight["fact"]
 
 
-@pytest.mark.parametrize("count, expected", [
-    (1, "1 gol"), (5, "5 goluri"), (19, "19 goluri"), (20, "20 de goluri"),
-    (33, "33 de goluri"), (101, "101 goluri"), (100, "100 de goluri"), (120, "120 de goluri"),
-])
-def test_romanian_numeral_agreement(count, expected):
-    assert _n(count, "goluri", "gol") == expected
+@pytest.mark.parametrize("count, expected", [(1, "1 goal"), (5, "5 goals"), (33, "33 goals")])
+def test_number_agreement(count, expected):
+    assert _n(count, "goals", "goal") == expected

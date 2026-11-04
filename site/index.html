@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ro">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fotbal Verificat</title>
-<meta name="description" content="Tipare surprinzătoare din statistici de fotbal, cu dovada lângă fiecare cifră.">
+<title>Football, Verified</title>
+<meta name="description" content="Surprising patterns in football statistics, with the proof next to every number.">
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -117,30 +117,30 @@ footer li { margin-bottom: 6px; }
 <body>
 <div class="page">
   <header>
-    <h1>Fotbal Verificat</h1>
-    <p class="lede">Tipare surprinzătoare din statistici de fotbal. Lângă fiecare card găsești meciurile din spatele cifrelor.</p>
+    <h1>Football, Verified</h1>
+    <p class="lede">Surprising patterns in football statistics. Every card comes with the games behind its numbers.</p>
   </header>
-  <div class="filters" id="filters" role="group" aria-label="Filtrează după nivel"></div>
+  <div class="filters" id="filters" role="group" aria-label="Filter by level"></div>
   <p class="tier-note" id="tier-note"></p>
-  <main id="feed" aria-live="polite"><p class="status">Se încarcă feedul…</p></main>
+  <main id="feed" aria-live="polite"><p class="status">Loading the feed…</p></main>
   <footer>
-    <h2>Ce trebuie să știi</h2>
+    <h2>What to keep in mind</h2>
     <ul>
-      <li><span id="as-of">Datele sunt înghețate</span>. Sursa, Transfermarkt datasets, nu se mai actualizează.</li>
-      <li>Sunt incluse 14 campionate europene, doar meciuri de campionat, din 2012. „Restul meciurilor” nu înseamnă toată cariera.</li>
-      <li>Superliga României lipsește, pentru că sursa nu are date de jucători pentru ea.</li>
-      <li>Tiparele arată ce s-a întâmplat, nu de ce. Câștigurile „cu el titular” nu dovedesc că el le-a produs.</li>
-      <li>Cifrele sunt recalculate din sursă la generarea feedului, deci o greșeală din sursă ar apărea și aici.</li>
+      <li><span id="as-of">The data is frozen</span>. The source, Transfermarkt datasets, is no longer updated.</li>
+      <li>It covers 14 European leagues, league games only, from 2012. "The other games" does not mean a whole career.</li>
+      <li>Romania's Superliga is missing, because the source has no player data for it.</li>
+      <li>Patterns show what happened, not why. More wins with a player starting do not prove the player caused them.</li>
+      <li>Numbers are recounted from the source when the feed is built, so a mistake in the source would show up here too.</li>
     </ul>
     <p id="model-note"></p>
   </footer>
 </div>
 <script>
 const TIERS = {
-  all: { label: "Toate", note: "Toate tiparele găsite, ordonate după cât de surprinzătoare și de relevante sunt." },
-  record: { label: "Record", note: "Rar în absolut: foarte puțini jucători din baza de date au ajuns la o asemenea serie.", icon: '<path d="M8 1.5l2 4.3 4.7.6-3.4 3.2.9 4.7L8 11.9l-4.2 2.4.9-4.7L1.3 6.4 6 5.8z" fill="currentColor"/>' },
-  confirmed: { label: "Confirmat", note: "A rămas semnificativ după corecția pentru miile de combinații testate, deci e puțin probabil să fie noroc.", icon: '<path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' },
-  notable: { label: "Curiozitate", note: "Cifrele sunt exacte, dar cu atâtea combinații testate, tiparul poate fi și noroc.", icon: '<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="8" cy="8" r="1.75" fill="currentColor"/>' },
+  all: { label: "All", note: "Every pattern found, ordered by how surprising and relevant it is." },
+  record: { label: "Record", note: "Rare in absolute terms: very few players in the database reached a run like this.", icon: '<path d="M8 1.5l2 4.3 4.7.6-3.4 3.2.9 4.7L8 11.9l-4.2 2.4.9-4.7L1.3 6.4 6 5.8z" fill="currentColor"/>' },
+  confirmed: { label: "Confirmed", note: "Still significant after correcting for the thousands of combinations tested, so unlikely to be luck.", icon: '<path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' },
+  notable: { label: "Curiosity", note: "The numbers are exact, but with so many combinations tested, the pattern could still be luck.", icon: '<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.75"/><circle cx="8" cy="8" r="1.75" fill="currentColor"/>' },
 };
 const SVG_NS = 'viewBox="0 0 16 16" aria-hidden="true"';
 const CHECK = `<svg ${SVG_NS}>${TIERS.confirmed.icon}</svg>`;
@@ -157,13 +157,8 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
-// Romanian numeral agreement: 5 meciuri, 64 de meciuri, 1 gol.
-const count = (n, plural, singular) => {
-  if (n === 1 && singular) return `1 ${singular}`;
-  const lastTwo = n % 100;
-  return (lastTwo >= 20 || (lastTwo === 0 && n > 0)) ? `${n} de ${plural}` : `${n} ${plural}`;
-};
-const roDate = iso => iso.split("-").reverse().join(".");
+const count = (n, plural, singular) => (n === 1 ? `1 ${singular}` : `${n} ${plural}`);
+const niceDate = iso => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 let cards = [];
 let activeTier = "all";
 try { activeTier = TIERS[localStorage.getItem("tier")] ? localStorage.getItem("tier") : "all"; } catch {}
@@ -193,35 +188,35 @@ function barsView(bars) {
 
 function proofTable(group) {
   const isClub = group.metric === "won";
-  const heads = isClub ? ["Data", "Adversar", "Loc", "Scor", "Victorie"] : ["Data", "Adversar", "Loc", "Scor", "Goluri", "Minute"];
+  const heads = isClub ? ["Date", "Opponent", "Venue", "Score", "Win"] : ["Date", "Opponent", "Venue", "Score", "Goals", "Minutes"];
   const rows = group.rows.map(row => el("tr", {},
-    el("td", {}, roDate(row.date)),
+    el("td", {}, niceDate(row.date)),
     el("td", { class: "opp" }, row.opponent),
-    el("td", {}, row.home ? "acasă" : "depl."),
+    el("td", {}, row.home ? "home" : "away"),
     el("td", {}, row.score),
     ...(isClub
-      ? [el("td", { class: row.won ? "hit" : "" }, row.won ? "da" : "nu")]
+      ? [el("td", { class: row.won ? "hit" : "" }, row.won ? "yes" : "no")]
       : [el("td", { class: `num ${row.goals > 0 ? "hit" : ""}` }, String(row.goals)), el("td", { class: "num" }, String(row.minutes))])));
-  return el("div", { class: "table-wrap", tabindex: "0", role: "region", "aria-label": `Meciuri: ${group.label}` },
+  return el("div", { class: "table-wrap", tabindex: "0", role: "region", "aria-label": `Games: ${group.label}` },
     el("table", {},
       el("thead", {}, el("tr", {}, ...heads.map((h, i) => el("th", { scope: "col", class: !isClub && i > 3 ? "num" : "" }, h)))),
       el("tbody", {}, ...rows)));
 }
 
 function recountText(group) {
-  const games = count(group.n, "meciuri", "meci");
-  if (group.metric === "goals") return `Recalculat din datele brute la generarea feedului: ${count(group.k, "goluri", "gol")} în ${games}.`;
-  const what = group.metric === "won" ? count(group.k, "victorii", "victorie") : count(group.k, "meciuri cu gol", "meci cu gol");
-  return `Recalculat din datele brute la generarea feedului: ${what} din ${games}.`;
+  const games = count(group.n, "games", "game");
+  if (group.metric === "goals") return `Recounted from the raw data when the feed was built: ${count(group.k, "goals", "goal")} in ${games}.`;
+  const what = group.metric === "won" ? count(group.k, "wins", "win") : count(group.k, "games with a goal", "game with a goal");
+  return `Recounted from the raw data when the feed was built: ${what} out of ${games}.`;
 }
 
 function toggleProof(card, button, slot) {
   const opening = button.getAttribute("aria-expanded") !== "true";
   button.setAttribute("aria-expanded", String(opening));
-  button.textContent = opening ? "Ascunde dovada" : "Vezi dovada";
+  button.textContent = opening ? "Hide the proof" : "See the proof";
   if (!opening) { slot.replaceChildren(); return; }
   slot.replaceChildren(el("div", { class: "proof" },
-    el("p", { class: "fact" }, `Faptul verificat, înainte de rescriere: ${card.proof.verified_fact}`),
+    el("p", { class: "fact" }, `The verified fact, before rewriting: ${card.proof.verified_fact}`),
     ...card.proof.groups.flatMap(group => [
       el("h3", {}, group.label),
       el("p", { class: "recount" }, el("span", { html: CHECK }), recountText(group)),
@@ -232,7 +227,7 @@ function toggleProof(card, button, slot) {
 function cardView(card) {
   const info = TIERS[card.tier];
   const slot = el("div");
-  const button = el("button", { type: "button", class: "proof-toggle", "aria-expanded": "false" }, "Vezi dovada");
+  const button = el("button", { type: "button", class: "proof-toggle", "aria-expanded": "false" }, "See the proof");
   button.addEventListener("click", () => toggleProof(card, button, slot));
   return el("article", { class: "card" },
     el("div", { class: "tier" }, el("span", { html: `<svg ${SVG_NS}>${info.icon}</svg>`, style: "display:flex" }), info.label),
@@ -251,11 +246,11 @@ function render() {
 
 fetch("feed.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
   cards = data.cards;
-  document.getElementById("as-of").textContent = `Datele sunt înghețate la ${roDate(data.data_as_of)}`;
-  document.getElementById("model-note").textContent = `Textele sunt scrise de un model AI (${data.model}), după faptele verificate. Modelul nu calculează nimic, iar cifrele mari și barele vin direct din date.`;
+  document.getElementById("as-of").textContent = `The data is frozen at ${niceDate(data.data_as_of)}`;
+  document.getElementById("model-note").textContent = `The text is written by an AI model (${data.model}) from the verified facts. The model calculates nothing, and the big numbers and bars come straight from the data.`;
   render();
 }).catch(() => {
-  document.getElementById("feed").replaceChildren(el("p", { class: "status" }, "Feedul nu s-a putut încărca."));
+  document.getElementById("feed").replaceChildren(el("p", { class: "status" }, "The feed could not be loaded."));
 });
 </script>
 </body>

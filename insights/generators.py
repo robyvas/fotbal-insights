@@ -19,13 +19,8 @@ def _pct(x: float) -> str:
     return f"{round(x * 100)}%"
 
 
-def _n(count: int, plural: str, singular: str | None = None) -> str:
-    """Romanian numeral agreement: 1 gol, 5 goluri, 21 de goluri."""
-    if count == 1 and singular:
-        return f"1 {singular}"
-    last_two = count % 100
-    needs_de = last_two == 0 and count > 0 or last_two >= 20
-    return f"{count} de {plural}" if needs_de else f"{count} {plural}"
+def _n(count: int, plural: str, singular: str) -> str:
+    return f"1 {singular}" if count == 1 else f"{count} {plural}"
 
 
 def _keep(rows, p_values, min_effect=None, notable_p=None):
@@ -46,7 +41,7 @@ def _insight(kind, subject_type, subject_id, p, adj, tier, tested, fact, numbers
     return {
         "kind": kind, "subject_type": subject_type, "subject_id": int(subject_id),
         "tier": tier, "p_value": p, "adjusted_p": adj, "candidates_tested": tested,
-        "fact_ro": fact, "numbers": numbers, "evidence": evidence,
+        "fact": fact, "numbers": numbers, "evidence": evidence,
     }
 
 
@@ -91,8 +86,8 @@ def opponent_hot(con):
     for r, pv, adj, tier in kept:
         pid, name, _, opp, n_, k_, goals, n_rest, k_rest, ids = r
         rate, baseline = k_ / n_, k_rest / n_rest
-        fact = (f"{name} a marcat în {k_} din {_n(n_, 'meciuri')} de campionat împotriva echipei {opp} ({_pct(rate)}), "
-                f"cu {_n(goals, 'goluri', 'gol')} în aceste meciuri. În restul meciurilor din baza de date marchează în {_pct(baseline)} din ele.")
+        fact = (f"{name} scored in {k_} of {_n(n_, 'league games', 'league game')} against {opp} ({_pct(rate)}), "
+                f"with {_n(goals, 'goals', 'goal')} in those games. In the other games in the database the scoring rate is {_pct(baseline)}.")
         out.append(_insight("opponent_hot", "player", pid, pv, adj, tier, tested, fact,
                             {"k": k_, "n": n_, "goals": goals, "rate": rate, "baseline": baseline, "opponent": opp},
                             [_scored(pid, ids, k_)]))
@@ -113,8 +108,8 @@ def opponent_cold(con):
     for r, pv, adj, tier in kept:
         pid, name, _, opp, n_, _, _, n_rest, k_rest, ids = r
         baseline = k_rest / n_rest
-        fact = (f"{name} nu a marcat niciodată împotriva echipei {opp} în {_n(n_, 'meciuri')} de campionat, "
-                f"deși marchează în {_pct(baseline)} din celelalte meciuri din baza de date.")
+        fact = (f"{name} has never scored against {opp} in {_n(n_, 'league games', 'league game')} (0 of {n_}), "
+                f"despite scoring in {_pct(baseline)} of the other games in the database.")
         out.append(_insight("opponent_cold", "player", pid, pv, adj, tier, tested, fact,
                             {"k": 0, "n": n_, "baseline": baseline, "opponent": opp}, [_scored(pid, ids, 0)]))
     return out, tested
@@ -137,7 +132,7 @@ def home_away(con):
         return [], 0
     nh, kh = np.array([r[2] for r in rows]), np.array([r[3] for r in rows])
     na, ka = np.array([r[4] for r in rows]), np.array([r[5] for r in rows])
-    # If this player had the normal home advantage, this share of his scoring games would be at home.
+    # With the normal home advantage, this share of the player's scoring games would be at home.
     share = nh * home_rate / (nh * home_rate + na * away_rate)
     p = st.binom_two_sided(kh, kh + ka, share)
     kept, tested = _keep(rows, p, lambda r: abs(r[3] / r[2] - r[5] / r[4]) >= 0.15, notable_p=0.005)
@@ -145,9 +140,9 @@ def home_away(con):
     for r, pv, adj, tier in kept:
         pid, name, nh_, kh_, na_, ka_, ih, ia = r
         rh, ra = kh_ / nh_, ka_ / na_
-        where = "deplasare" if ra > rh else "acasă"
-        fact = (f"{name} marchează mult mai des {'în ' if where == 'deplasare' else ''}{where}: "
-                f"acasă în {kh_} din {_n(nh_, 'meciuri')} ({_pct(rh)}), în deplasare în {ka_} din {na_} ({_pct(ra)}).")
+        where = "away" if ra > rh else "at home"
+        fact = (f"{name} scores far more often {where}: "
+                f"at home in {kh_} of {_n(nh_, 'games', 'game')} ({_pct(rh)}), away in {ka_} of {na_} ({_pct(ra)}).")
         out.append(_insight("home_away", "player", pid, pv, adj, tier, tested, fact,
                             {"kh": kh_, "nh": nh_, "ka": ka_, "na": na_, "rate_home": rh, "rate_away": ra},
                             [_scored(pid, ih, kh_), _scored(pid, ia, ka_)]))
@@ -198,7 +193,7 @@ def scoring_streak(con):
         if adj < FDR and r[4] >= 6:
             kept.append((r, float(pv), float(adj), "confirmed"))
         elif r[4] >= RECORD_STREAK_MIN:
-            # For a prolific scorer a long run is not improbable for him, but it is rare
+            # For a prolific scorer a long run is not improbable, but it is rare
             # among players: measure that with the share of players who reached it.
             share = float((length >= r[4]).mean())
             kept.append((r, share, share, "record"))
@@ -206,9 +201,9 @@ def scoring_streak(con):
     for r, pv, adj, tier in kept:
         pid, name, club, comp, len_, goals, d1, d2, n_all, k_all, ids = r
         baseline = (k_all - len_) / (n_all - len_)
-        fact = (f"{name} a marcat în {_n(len_, 'apariții')} consecutive de campionat la {club} "
-                f"({d1:%d.%m.%Y} – {d2:%d.%m.%Y}), {_n(goals, 'goluri', 'gol')} în total. "
-                f"În restul meciurilor din baza de date marchează în {_pct(baseline)} din ele.")
+        fact = (f"{name} scored in {_n(len_, 'consecutive league appearances', 'league appearance')} for {club} "
+                f"({d1:%d %b %Y} – {d2:%d %b %Y}), {_n(goals, 'goals', 'goal')} in total. "
+                f"In the other games in the database the scoring rate is {_pct(baseline)}.")
         out.append(_insight("scoring_streak", "player", pid, pv, adj, tier, tested, fact,
                             {"length": len_, "goals": goals, "baseline": baseline, "competition": comp,
                              "from": str(d1), "to": str(d2), "club": club},
@@ -219,7 +214,7 @@ def scoring_streak(con):
 def super_sub(con):
     """Scores more per 90 minutes coming off the bench than when starting."""
     # Everyone scores more per minute off the bench, because game endings are more open.
-    # Compare each player with that general ratio, not with his starter rate alone.
+    # Compare each player with that general ratio, not with the starter rate alone.
     bench_boost = con.execute("""
         SELECT (sum(goals) FILTER (WHERE NOT started) * 1.0 / sum(minutes) FILTER (WHERE NOT started))
              / (sum(goals) FILTER (WHERE started) * 1.0 / sum(minutes) FILTER (WHERE started))
@@ -243,8 +238,8 @@ def super_sub(con):
     for r, pv, adj, tier in kept:
         pid, name, ns, gs_, ms, nt, gt, mt, ids_sub, ids_start = r
         per90_sub, per90_start = gs_ / ms * 90, gt / mt * 90
-        fact = (f"{name} marchează mai des când intră de pe bancă: {_n(gs_, 'goluri', 'gol')} în {_n(ms, 'minute')} ca rezervă "
-                f"({per90_sub:.2f} la 90 de minute), față de {_n(gt, 'goluri', 'gol')} în {_n(mt, 'minute')} ca titular ({per90_start:.2f}).")
+        fact = (f"{name} scores more often off the bench: {_n(gs_, 'goals', 'goal')} in {ms} minutes as a substitute "
+                f"({per90_sub:.2f} per 90 minutes), against {_n(gt, 'goals', 'goal')} in {mt} minutes as a starter ({per90_start:.2f}).")
         out.append(_insight("super_sub", "player", pid, pv, adj, tier, tested, fact,
                             {"goals_sub": gs_, "minutes_sub": ms, "goals_start": gt, "minutes_start": mt,
                              "per90_sub": per90_sub, "per90_start": per90_start, "general_bench_boost": bench_boost},
@@ -276,8 +271,8 @@ def recent_form(con):
     for r, pv, adj, tier in kept:
         pid, name, g10_, m10, g_prev, m_prev, last_game, ids = r
         expected = g_prev / m_prev * m10
-        fact = (f"{name} are {_n(g10_, 'goluri', 'gol')} în ultimele 10 apariții de campionat (până la {last_game:%d.%m.%Y}). "
-                f"La ritmul lui de dinainte ar fi avut cam {expected:.1f}.")
+        fact = (f"{name} has {_n(g10_, 'goals', 'goal')} in the last 10 league appearances (up to {last_game:%d %b %Y}). "
+                f"At the earlier rate, the expected total would be about {expected:.1f}.")
         out.append(_insight("recent_form", "player", pid, pv, adj, tier, tested, fact,
                             {"goals": g10_, "minutes": m10, "expected": expected, "last_game": str(last_game)},
                             [_goals(pid, ids, g10_)]))
@@ -309,8 +304,8 @@ def team_head_to_head(con):
     for r, pv, adj, tier in kept:
         cid, name, _, opp, n_, k_, n_rest, k_rest, d1, d2, ids, comp = r
         rate, baseline = k_ / n_, k_rest / n_rest
-        fact = (f"{name} a câștigat {k_} din {_n(n_, 'meciuri')} de campionat cu {opp} ({_pct(rate)}), "
-                f"față de {_pct(baseline)} cu restul echipelor ({d1.year}–{d2.year}).")
+        fact = (f"{name} won {k_} of {_n(n_, 'league games', 'league game')} against {opp} ({_pct(rate)}), "
+                f"against {_pct(baseline)} versus other clubs ({d1.year}–{d2.year}).")
         out.append(_insight("team_head_to_head", "club", cid, pv, adj, tier, tested, fact,
                             {"k": k_, "n": n_, "rate": rate, "baseline": baseline, "opponent": opp, "competition": comp},
                             [_won(cid, ids, k_)]))
@@ -318,10 +313,10 @@ def team_head_to_head(con):
 
 
 def with_without(con):
-    """A club's win rate with a player in the starting XI versus without him.
+    """A club's win rate with a player in the starting XI versus without.
 
-    "Without" only counts games between his first and last start of that season, otherwise
-    games from before he signed would be blamed on his absence. This is an association,
+    "Without" only counts games between the player's first and last start of that season,
+    otherwise games from before signing would count as absence. This is an association,
     not a cause: rotation and injuries also vary with the opponent.
     """
     rows = con.execute("""
@@ -358,8 +353,8 @@ def with_without(con):
     for r, pv, adj, tier in kept:
         pid, name, cid, club, n1_, k1_, n2_, k2_, i1, i2 = r
         r1, r2 = k1_ / n1_, k2_ / n2_
-        fact = (f"{club} a câștigat {_pct(r1)} din meciurile de campionat cu {name} titular ({k1_} din {n1_}), "
-                f"față de {_pct(r2)} fără el ca titular ({k2_} din {n2_}), în aceeași perioadă.")
+        fact = (f"{club} won {_pct(r1)} of league games with {name} starting ({k1_} of {n1_}), "
+                f"against {_pct(r2)} without {name} starting ({k2_} of {n2_}), over the same period.")
         out.append(_insight("with_without", "player", pid, pv, adj, tier, tested, fact,
                             {"k_with": k1_, "n_with": n1_, "k_without": k2_, "n_without": n2_,
                              "rate_with": r1, "rate_without": r2, "club": club},
